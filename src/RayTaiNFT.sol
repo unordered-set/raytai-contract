@@ -38,31 +38,57 @@ contract RayTaiNFT is ERC721, Owned {
         _total_limit = total_limit;
     }
 
-    function mint(address account, bytes32[] calldata proof)
+    function mint(address account, uint8 amount, bytes32[] calldata proof)
     external payable
     {
         require(_counter < _total_limit, "No NFTs left");
         require(_verify(_leaf(account), proof), "Invalid merkle proof");
-        if (al_mint_in_progress()) {
-            require(msg.value == _allowlist_price, "Insufficient ETH provided for AL sale");
-            require(_per_acc_counters[account].minted_from_allow_list < _allowlist_per_acc_limit, "Over the AL limit");
-            unchecked {
-                ++_per_acc_counters[account].minted_from_allow_list;
-            }
-        } else {
-            require(msg.value == _public_price, "Insufficient ETH provided for Public sale");
-            require(_per_acc_counters[account].minted_from_public_sale < _public_per_acc_limit, "Over the Public limit");
-            unchecked {
-                ++_per_acc_counters[account].minted_from_public_sale;
-            }
+        if (public_sale_is_in_progress()) {
+            mint(account, amount);
+            return;
         }
-        _mint(account, _counter);
+        require(msg.value == amount * _allowlist_price, "Insufficient ETH provided for AL sale");
+        require(_per_acc_counters[account].minted_from_allow_list + amount < _allowlist_per_acc_limit, "Over the AL limit");
         unchecked {
-            ++_counter;
+            _per_acc_counters[account].minted_from_allow_list += amount;
+        }
+        _mintImpl(account, amount);
+    }
+
+    function mint(address account, uint8 amount)
+    public payable
+    {
+        require(_counter < _total_limit, "No NFTs left");
+        require(public_sale_is_in_progress(), "Public sale have not started");
+        require(msg.value == amount * _public_price, "Insufficient ETH provided for AL sale");
+        require(_per_acc_counters[account].minted_from_public_sale + amount < _public_per_acc_limit, "Over the Public Sale limit");
+        unchecked {
+            _per_acc_counters[account].minted_from_public_sale += amount;
+        }
+        _mintImpl(account, amount);
+    }
+
+    function _mintImpl(address account, uint8 amount) internal {
+        uint16 final_index;
+        unchecked {
+            final_index = _counter + amount;
+            if (final_index > _total_limit)
+                final_index = _total_limit;
+        }
+
+        for (uint16 index = _counter; index < final_index; ) {
+            // Although 721a makes bulk mints cheaper, in a long run, after collection
+            // is used for a while, all of it's smartness turns into complications IMO.
+            _mint(account, index);
+            unchecked { ++index; }
+        }
+
+        unchecked {
+            _counter = final_index;
         }
     }
 
-    function al_mint_in_progress() internal view returns (bool) {
+    function public_sale_is_in_progress() internal view returns (bool) {
         return block.number < 120;
     }
 
