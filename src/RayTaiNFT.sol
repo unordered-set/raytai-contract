@@ -13,6 +13,7 @@ contract RayTaiNFT is ERC721, Owned {
     uint8 immutable public _allowlist_per_acc_limit;
     uint8 immutable public _public_per_acc_limit;
     uint16 immutable public _total_limit;
+    uint32 immutable public _public_sale_block;
 
     uint16 _counter;
     string _baseURI;
@@ -26,7 +27,7 @@ contract RayTaiNFT is ERC721, Owned {
     constructor(string memory name, string memory symbol, bytes32 merkleroot,
                 uint256 allowlist_price, uint256 public_price,
                 uint8 allowlist_per_acc_limit, uint8 public_per_acc_limit,
-                uint16 total_limit)
+                uint16 total_limit, uint32 public_sale_block)
     ERC721(name, symbol)
     Owned(msg.sender)
     {
@@ -36,19 +37,19 @@ contract RayTaiNFT is ERC721, Owned {
         _allowlist_per_acc_limit = allowlist_per_acc_limit;
         _public_per_acc_limit = public_per_acc_limit;
         _total_limit = total_limit;
+        _public_sale_block = public_sale_block;
     }
 
     function mint(address account, uint8 amount, bytes32[] calldata proof)
     external payable
     {
-        require(_counter < _total_limit, "No NFTs left");
         require(_verify(_leaf(account), proof), "Invalid merkle proof");
         if (public_sale_is_in_progress()) {
             mint(account, amount);
             return;
         }
         require(msg.value == amount * _allowlist_price, "Insufficient ETH provided for AL sale");
-        require(_per_acc_counters[account].minted_from_allow_list + amount < _allowlist_per_acc_limit, "Over the AL limit");
+        require(_per_acc_counters[account].minted_from_allow_list + amount <= _allowlist_per_acc_limit, "Over the AL limit");
         unchecked {
             _per_acc_counters[account].minted_from_allow_list += amount;
         }
@@ -58,10 +59,9 @@ contract RayTaiNFT is ERC721, Owned {
     function mint(address account, uint8 amount)
     public payable
     {
-        require(_counter < _total_limit, "No NFTs left");
         require(public_sale_is_in_progress(), "Public sale have not started");
-        require(msg.value == amount * _public_price, "Insufficient ETH provided for AL sale");
-        require(_per_acc_counters[account].minted_from_public_sale + amount < _public_per_acc_limit, "Over the Public Sale limit");
+        require(msg.value == amount * _public_price, "Insufficient ETH provided for public sale");
+        require(_per_acc_counters[account].minted_from_public_sale + amount <= _public_per_acc_limit, "Over the Public Sale limit");
         unchecked {
             _per_acc_counters[account].minted_from_public_sale += amount;
         }
@@ -69,11 +69,15 @@ contract RayTaiNFT is ERC721, Owned {
     }
 
     function _mintImpl(address account, uint8 amount) internal {
+        require(_counter < _total_limit, "No NFTs left");
         uint16 final_index;
         unchecked {
             final_index = _counter + amount;
-            if (final_index > _total_limit)
+            if (final_index > _total_limit) {
                 final_index = _total_limit;
+                (bool returnSent, ) = msg.sender.call{value: msg.value / amount * (_counter + amount - _total_limit)}("");
+                require(returnSent);
+            }
         }
 
         for (uint16 index = _counter; index < final_index; ) {
@@ -89,7 +93,7 @@ contract RayTaiNFT is ERC721, Owned {
     }
 
     function public_sale_is_in_progress() internal view returns (bool) {
-        return block.number < 120;
+        return block.number >= _public_sale_block;
     }
 
     function _leaf(address account)
@@ -105,7 +109,7 @@ contract RayTaiNFT is ERC721, Owned {
     }
 
     function tokenURI(uint256 id) public view override returns (string memory) {
-        return string(abi.encodePacked(_baseURI, LibString.toString(id)));
+        return string(abi.encodePacked(_baseURI, LibString.toString(id), ".json"));
     }
 
     function setBaseURL(string calldata newBaseURI) external onlyOwner {
