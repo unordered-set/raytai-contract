@@ -46,6 +46,40 @@ contract RayTaiNFT_Test is Test {
         assertEq(amountOfNFTs, 2);
     }
 
+    function testBuyingOnePlusOneFromALduringAL() public {
+        uint256 amountOfNFTs = nft.balanceOf(AL_ADDRESS);
+        assertEq(amountOfNFTs, 0);
+
+        bytes32[] memory proof = new bytes32[](2);
+        proof[0] = bytes32(0x46f9c5c89fb1dcb5e9700e66c106df9c6032f4f8d4c028e8fdc72edaa21b2872);
+        proof[1] = bytes32(0x233484032c7c27e1b364617283af5a5964d91576a985e46c14ea9e10e69edf23);
+        hoax(AL_ADDRESS, 1 ether);
+        nft.mint{value: 25000000 gwei}(AL_ADDRESS, uint8(1), proof);
+
+        amountOfNFTs = nft.balanceOf(AL_ADDRESS);
+        assertEq(amountOfNFTs, 1);
+
+        hoax(AL_ADDRESS, 1 ether);
+        nft.mint{value: 25000000 gwei}(AL_ADDRESS, uint8(1), proof);
+
+        amountOfNFTs = nft.balanceOf(AL_ADDRESS);
+        assertEq(amountOfNFTs, 2);
+    }
+
+    function testFailBuyingOnePlusOnePlusOneFromALduringAL() public {
+        bytes32[] memory proof = new bytes32[](2);
+        proof[0] = bytes32(0x46f9c5c89fb1dcb5e9700e66c106df9c6032f4f8d4c028e8fdc72edaa21b2872);
+        proof[1] = bytes32(0x233484032c7c27e1b364617283af5a5964d91576a985e46c14ea9e10e69edf23);
+        hoax(AL_ADDRESS, 1 ether);
+        nft.mint{value: 25000000 gwei}(AL_ADDRESS, uint8(1), proof);
+
+        hoax(AL_ADDRESS, 1 ether);
+        nft.mint{value: 25000000 gwei}(AL_ADDRESS, uint8(1), proof);
+
+        hoax(AL_ADDRESS, 1 ether);
+        nft.mint{value: 25000000 gwei}(AL_ADDRESS, uint8(1), proof);
+    }
+
     function testFailBuyingFromALduringALMoreThanAllowed() public {
         uint256 amountOfNFTs = nft.balanceOf(AL_ADDRESS);
         assertEq(amountOfNFTs, 0);
@@ -147,7 +181,7 @@ contract RayTaiNFT_Test is Test {
         assertEq(amountOfNFTs, 3);
     }
 
-    function testBuyingFiveFromAL() public {
+    function testBuyingFourFromAL() public {
         uint256 amountOfNFTs = nft.balanceOf(AL_ADDRESS);
         assertEq(amountOfNFTs, 0);
 
@@ -171,7 +205,7 @@ contract RayTaiNFT_Test is Test {
         assertEq(amountOfNFTs, 4);
     }
 
-    function testBuyingFourFromAL() public {
+    function testBuyingFiveFromAL() public {
         // AL-ed walled tries to buy 5, but gets 4 because of a limit.
         uint256 amountOfNFTs = nft.balanceOf(AL_ADDRESS);
         assertEq(amountOfNFTs, 0);
@@ -194,6 +228,13 @@ contract RayTaiNFT_Test is Test {
         assertEq(amountOfNFTs, 5);
     }
 
+    function testFailBuyingMoreThanTotalSupply() public {
+        testBuyingFiveFromAL();
+
+        hoax(NOT_AL_ADDRESS, 1 ether);
+        nft.mint{value: 33000000 gwei}(NOT_AL_ADDRESS, uint8(1));
+    }
+
     function testSettingURL() public {
         vm.roll(17250000);
         hoax(AL_ADDRESS, 1 ether);
@@ -211,11 +252,19 @@ contract RayTaiNFT_Test is Test {
     }
 
     function testFailSettingURLFromWrongAddress() public {
-        vm.roll(17250000);
-        hoax(AL_ADDRESS, 1 ether);
-        nft.mint{value: 99000000 gwei}(AL_ADDRESS, uint8(3));
         hoax(AL_ADDRESS, 1 ether);
         nft.setBaseURL("http://www.example.com/#");
+    }
+
+    function testTransferringOwnershipAndSettingURL() public {
+        nft.transferOwnership(AL_ADDRESS);
+        testFailSettingURLFromWrongAddress();
+
+        vm.roll(17250000);
+        hoax(NOT_AL_ADDRESS, 1 ether);
+        nft.mint{value: 33000000 gwei}(NOT_AL_ADDRESS, uint8(1));
+
+        assertEq(nft.tokenURI(0), "http://www.example.com/#0.json");
     }
 }
 
