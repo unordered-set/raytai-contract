@@ -13,7 +13,10 @@ contract RayTaiNFT is ERC721, Owned {
     uint8 immutable public _allowlist_per_acc_limit;
     uint8 immutable public _public_per_acc_limit;
     uint16 immutable public _total_limit;
-    uint32 immutable public _public_sale_block;
+    uint32 public _allowlist_sale_time_start;
+    uint32 public _public_sale_time_start;
+    uint32 public _public_sale_time_stop;
+    address immutable public _withdrawer;
 
     uint16 _counter;
     string _baseURI;
@@ -27,28 +30,32 @@ contract RayTaiNFT is ERC721, Owned {
     constructor(string memory name, string memory symbol, bytes32 merkleroot,
                 uint256 allowlist_price, uint256 public_price,
                 uint8 allowlist_per_acc_limit, uint8 public_per_acc_limit,
-                uint16 total_limit, uint32 public_sale_block)
+                uint16 total_limit,
+                uint32 allowlist_sale_time_start, uint32 public_sale_time_start,
+                uint32 public_sale_time_stop, address withdrawer)
     ERC721(name, symbol)
     Owned(msg.sender)
     {
+        require(allowlist_sale_time_start < public_sale_time_start && public_sale_time_start < public_sale_time_stop);
         _root = merkleroot;
         _allowlist_price = allowlist_price;
         _public_price = public_price;
         _allowlist_per_acc_limit = allowlist_per_acc_limit;
         _public_per_acc_limit = public_per_acc_limit;
         _total_limit = total_limit;
-        _public_sale_block = public_sale_block;
+        _allowlist_sale_time_start = allowlist_sale_time_start;
+        _public_sale_time_start = public_sale_time_start;
+        _public_sale_time_stop = public_sale_time_stop;
+        _withdrawer = withdrawer;
     }
 
     function mint(address account, uint8 amount, bytes32[] calldata proof)
     external payable
     {
         require(_verify(_leaf(account), proof), "Invalid merkle proof");
-        if (public_sale_is_in_progress()) {
-            mint(account, amount);
-            return;
-        }
-        require(msg.value == amount * _allowlist_price, "Insufficient ETH provided for AL sale");
+        require(allowlist_sale_is_in_progress(), "Allowlist sale is not now");
+        require(msg.value == uint256(amount) * _allowlist_price, "Insufficient ETH provided for AL sale");
+        require(255 - amount >= _per_acc_counters[account].minted_from_allow_list, "Overflow on checking the AL limit");
         require(_per_acc_counters[account].minted_from_allow_list + amount <= _allowlist_per_acc_limit, "Over the AL limit");
         unchecked {
             _per_acc_counters[account].minted_from_allow_list += amount;
@@ -60,7 +67,8 @@ contract RayTaiNFT is ERC721, Owned {
     public payable
     {
         require(public_sale_is_in_progress(), "Public sale have not started");
-        require(msg.value == amount * _public_price, "Insufficient ETH provided for public sale");
+        require(msg.value == uint256(amount) * _public_price, "Insufficient ETH provided for public sale");
+        require(255 - amount >= _per_acc_counters[account].minted_from_public_sale, "Overflow checking Public Sale Limits");
         require(_per_acc_counters[account].minted_from_public_sale + amount <= _public_per_acc_limit, "Over the Public Sale limit");
         unchecked {
             _per_acc_counters[account].minted_from_public_sale += amount;
@@ -92,8 +100,12 @@ contract RayTaiNFT is ERC721, Owned {
         }
     }
 
+    function allowlist_sale_is_in_progress() internal view returns (bool) {
+        return block.timestamp >= _allowlist_sale_time_start && block.timestamp <= _public_sale_time_start;
+    }
+
     function public_sale_is_in_progress() internal view returns (bool) {
-        return block.number >= _public_sale_block;
+        return block.timestamp >= _public_sale_time_start && block.timestamp <= _public_sale_time_stop;
     }
 
     function _leaf(address account)
@@ -114,5 +126,18 @@ contract RayTaiNFT is ERC721, Owned {
 
     function setBaseURL(string calldata newBaseURI) external onlyOwner {
         _baseURI = newBaseURI;
+    }
+
+    function withdraw() external {
+        require(msg.sender == _withdrawer, "You are not an owner");
+        (bool sent, ) = msg.sender.call{value: address(this).balance}("");
+        require(sent);
+    }
+
+    function resetTimings(uint32 allowlist_sale_time_start, uint32 public_sale_time_start, uint32 public_sale_time_stop) external onlyOwner {
+        require(allowlist_sale_time_start < public_sale_time_start && public_sale_time_start < public_sale_time_stop);
+        _allowlist_sale_time_start = allowlist_sale_time_start;
+        _public_sale_time_start = public_sale_time_start;
+        _public_sale_time_stop = public_sale_time_stop;
     }
 }
