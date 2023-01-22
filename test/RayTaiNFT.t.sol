@@ -16,7 +16,8 @@ contract RayTaiNFT_Test is Test {
             2, 3,
             5,
             1500000000, 1600000000, 1700000000,
-            WITHDRAWER
+            WITHDRAWER,
+            "https://www.raytai.io/static/"
         );
     }
 

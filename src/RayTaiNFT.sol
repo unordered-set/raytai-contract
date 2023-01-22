@@ -10,15 +10,15 @@ contract RayTaiNFT is ERC721, Owned {
     bytes32 immutable public _root;
     uint256 immutable public _allowlist_price;
     uint256 immutable public _public_price;
-    uint8 immutable public _allowlist_per_acc_limit;
-    uint8 immutable public _public_per_acc_limit;
-    uint16 immutable public _total_limit;
     uint32 public _allowlist_sale_time_start;
     uint32 public _public_sale_time_start;
     uint32 public _public_sale_time_stop;
     address immutable public _withdrawer;
-
+    uint16 immutable public _total_limit;
     uint16 _counter;
+    uint8 immutable public _allowlist_per_acc_limit;
+    uint8 immutable public _public_per_acc_limit;
+
     string _baseURI;
 
     struct MintCounters {
@@ -32,7 +32,8 @@ contract RayTaiNFT is ERC721, Owned {
                 uint8 allowlist_per_acc_limit, uint8 public_per_acc_limit,
                 uint16 total_limit,
                 uint32 allowlist_sale_time_start, uint32 public_sale_time_start,
-                uint32 public_sale_time_stop, address withdrawer)
+                uint32 public_sale_time_stop, address withdrawer,
+                string memory baseURI)
     ERC721(name, symbol)
     Owned(msg.sender)
     {
@@ -47,6 +48,7 @@ contract RayTaiNFT is ERC721, Owned {
         _public_sale_time_start = public_sale_time_start;
         _public_sale_time_stop = public_sale_time_stop;
         _withdrawer = withdrawer;
+        _baseURI = baseURI;
     }
 
     function mint(address account, uint8 amount, bytes32[] calldata proof)
