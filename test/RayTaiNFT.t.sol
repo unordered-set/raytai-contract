@@ -302,6 +302,19 @@ contract RayTaiNFT_Test is Test {
         onPublicSale();
         buyFromAllowlist(1);
     }
+
+    function testNFTisTransferrable() public {
+        onPrivateSale();
+        buyFromAllowlist(1);
+        hoax(AL_ADDRESS, 1 ether);
+        nft.safeTransferFrom(AL_ADDRESS, NOT_AL_ADDRESS, 0);
+
+        onPublicSale();
+        buyFromPublicSale(3);
+
+        uint256 amountOfNFTs = nft.balanceOf(NOT_AL_ADDRESS);
+        assertEq(amountOfNFTs, 4);
+    }
 }
 
 
