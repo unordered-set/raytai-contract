@@ -7,7 +7,7 @@ import "solmate/utils/LibString.sol";
 import "solmate/utils/MerkleProofLib.sol";
 
 contract RayTaiNFT is ERC721, Owned {
-    bytes32 immutable public _root;
+    bytes32 public _root;
     uint256 immutable public _allowlist_price;
     uint256 immutable public _public_price;
     uint32 public _allowlist_sale_time_start;
@@ -128,6 +128,10 @@ contract RayTaiNFT is ERC721, Owned {
 
     function setBaseURL(string calldata newBaseURI) external onlyOwner {
         _baseURI = newBaseURI;
+    }
+
+    function setRoot(bytes32 newRoot) external onlyOwner {
+        _root = newRoot;
     }
 
     function withdraw() external {
